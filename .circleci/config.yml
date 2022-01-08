@@ -1,14 +1,13 @@
 version: 2.1
 orbs:
   aws-cli: circleci/aws-cli@2.0
+environment:
+  STACK_NAME: SampleStack
 jobs:
   check-exist-stack:
     executor: aws-cli/default
     steps:
       - aws-cli/setup
-      - run:
-          name: "set cfn stack name"
-          command: echo 'export STACK_NAME="SampleStack"' >> $BASH_ENV
       - run: aws cloudformation describe-stacks --stack-name $STACK_NAME
       - run: |
           if [ $? -eq 0 ]; then
