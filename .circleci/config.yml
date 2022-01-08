@@ -2,19 +2,31 @@ version: 2.1
 orbs:
   aws-cli: circleci/aws-cli@2.0
 jobs:
+  check-exist-stack:
+    executor: aws-cli/default
+    steps:
+      - aws-cli/setup
+      - run:
+          name: "set cfn stack name"
+          command: echo 'export STACK_NAME="SampleStack"' >> $BASH_ENV
+      - run: aws cloudformation describe-stacks --stack-name $STACK_NAME
+      - run: |
+          if [ $? -eq 0 ]; then
+            aws cloudformation delete-stack --stack-name $STACK_NAME
+          fi
   execute-cloud-formation:
     executor: aws-cli/default
     steps:
       - checkout
       - aws-cli/setup
-      - run:
-          name: "set cfn stack name"
-          command: echo 'export STACK_NAME="SampleStack"' >> $BASH_ENV
       - run: aws cloudformation create-stack --stack-name $STACK_NAME --template-body file://service/sample.yml
       - run: aws cloudformation wait stack-create-complete --stack-name $STACK_NAME
 
 workflows:
   build:
     jobs:
-      - execute-cloud-formation:
+      - check-exist-stack:
           context: aws
+      - execute-cloud-formation:
+          requires:
+            - check-exist-stack
