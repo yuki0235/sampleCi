@@ -9,9 +9,7 @@ jobs:
       - aws-cli/setup
       - run:
           name: "set cfn stack name"
-          command: |
-            STACK_NAME="SampleCfnStack"
-            echo $STACK_NAME
+          command: echo 'export STACK_NAME="SampleStack"' >> $BASH_ENV
       - run: aws cloudformation create-stack --stack-name $STACK_NAME --template-body file://service/sample.yml
       - run: aws cloudformation wait stack-create-complete --stack-name $STACK_NAME
 
