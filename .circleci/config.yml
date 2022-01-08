@@ -4,28 +4,23 @@ orbs:
 environment:
   STACK_NAME: SampleStack
 jobs:
-  check-exist-stack:
+  execute-cloud-formation:
+    environment:
+      STACK_NAME: SampleStack
     executor: aws-cli/default
     steps:
+      - checkout
       - aws-cli/setup
       - run: aws cloudformation describe-stacks --stack-name $STACK_NAME
       - run: |
           if [ $? -eq 0 ]; then
             aws cloudformation delete-stack --stack-name $STACK_NAME
+          else
+            aws cloudformation create-stack --stack-name $STACK_NAME --template-body file://service/sample.yml
+            aws cloudformation wait stack-create-complete --stack-name $STACK_NAME
           fi
-  execute-cloud-formation:
-    executor: aws-cli/default
-    steps:
-      - checkout
-      - aws-cli/setup
-      - run: aws cloudformation create-stack --stack-name $STACK_NAME --template-body file://service/sample.yml
-      - run: aws cloudformation wait stack-create-complete --stack-name $STACK_NAME
-
 workflows:
   build:
     jobs:
-      - check-exist-stack:
-          context: aws
       - execute-cloud-formation:
-          requires:
-            - check-exist-stack
+          context: aws
