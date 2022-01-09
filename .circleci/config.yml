@@ -7,26 +7,36 @@ jobs:
   execute-cloud-formation:
     environment:
       STACK_NAME: SampleStack
-      RESULT_FILE: command_result
+      RESULT_FILE: result
       TEMPLATE_FILE: file://service/sample.yml
+      CHANGESET_NAME: sampleChangeset
     executor: aws-cli/default
     steps:
       - checkout
       - aws-cli/setup
       - run: set +e
-      - run: aws cloudformation describe-stacks --stack-name SampleStack 2>/dev/null > $RESULT_FILE
       - run:
-          name: Create or Update
+          name: Check Stack Exist
+          command: aws cloudformation describe-stacks --stack-name SampleStack 2>/dev/null > $RESULT_FILE
+      - run:
+          name: Create or Update Stack
           command: |
             if [ ! -s $RESULT_FILE ]; then
               aws cloudformation create-stack --stack-name $STACK_NAME --template-body $TEMPLATE_FILE
               aws cloudformation wait stack-create-complete --stack-name $STACK_NAME
             else
-              aws cloudformation update-stack --stack-name $STACK_NAME --template-body $TEMPLATE_FILE --no-fail-on-empty-changeset
-              aws cloudformation wait stack-update-complete --stack-name $STACK_NAME
+              aws cloudformation create-change-set --stack-name $STACK_NAME --change-set-name $CHANGESET_NAME --template-body $TEMPLATE_FILE
+              aws cloudformation describe-change-set --stack-name $STACK_NAME --change-set-name $CHANGESET_NAME | grep  "Changes\": \[\]" > $RESULT_FILE
+              if [ -s $RESULT_FILE ]; then
+                echo "No Changed"
+              else
+                aws cloudformation update-stack --stack-name $STACK_NAME --template-body $TEMPLATE_FILE --no-fail-on-empty-changeset
+                aws cloudformation wait stack-update-complete --stack-name $STACK_NAME
+              fi
+              aws cloudformation delete-change-set --stack-name $STACK_NAME --change-set-name $CHANGESET_NAME
             fi
+            exit 0
           when: always
-      - run: set -e
 workflows:
   build:
     jobs:
