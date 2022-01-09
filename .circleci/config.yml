@@ -7,18 +7,26 @@ jobs:
   execute-cloud-formation:
     environment:
       STACK_NAME: SampleStack
+      RESULT_FILE: command_result
+      TEMPLATE_FILE: file://service/sample.yml
     executor: aws-cli/default
     steps:
       - checkout
       - aws-cli/setup
-      - run: aws cloudformation describe-stacks --stack-name $STACK_NAME
-      - run: |
-          if [ $? -eq 0 ]; then
-            aws cloudformation delete-stack --stack-name $STACK_NAME
-          else
-            aws cloudformation create-stack --stack-name $STACK_NAME --template-body file://service/sample.yml
-            aws cloudformation wait stack-create-complete --stack-name $STACK_NAME
-          fi
+      - run: set +e
+      - run: aws cloudformation describe-stacks --stack-name SampleStack 2>/dev/null > $RESULT_FILE
+      - run:
+          name: Create or Update
+          command: |
+            if [ ! -s $RESULT_FILE ]; then
+              aws cloudformation create-stack --stack-name $STACK_NAME --template-body $TEMPLATE_FILE
+              aws cloudformation wait stack-create-complete --stack-name $STACK_NAME
+            else
+              aws cloudformation update-stack --stack-name $STACK_NAME --template-body $TEMPLATE_FILE --no-fail-on-empty-changeset
+              aws cloudformation wait stack-update-complete --stack-name $STACK_NAME
+            fi
+          when: always
+      - run: set -e
 workflows:
   build:
     jobs:
